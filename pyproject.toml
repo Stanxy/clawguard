@@ -1,7 +1,7 @@
 [project]
-name = "clawguard"
-version = "0.2.0"
-description = "DLP Surveillance Layer for OpenClaw — scans outbound content for secrets, PII, and policy violations"
+name = "clawwall"
+version = "0.2.1"
+description = "Outbound DLP for OpenClaw — hard regex blocks secrets & PII from leaving the machine. Domain control, no LLM."
 requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
@@ -26,11 +26,20 @@ pytest = ">=7.4.0,<9.0"
 pytest-asyncio = ">=0.23.0,<1.0"
 httpx = ">=0.26.0,<1.0"
 
+[project.urls]
+Homepage = "https://github.com/Stanxy/clawguard"
+Repository = "https://github.com/Stanxy/clawguard"
+Issues = "https://github.com/Stanxy/clawguard/issues"
+
+[project.scripts]
+clawwall = "clawguard.__main__:main"
+
 [build-system]
 requires = ["poetry-core>=2.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
+name = "clawwall"
 packages = [{include = "clawguard", from = "src"}]
 
 [tool.pytest.ini_options]
