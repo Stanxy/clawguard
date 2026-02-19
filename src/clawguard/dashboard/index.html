@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClawGuard Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root {
+      --cg-green: #2e7d32;
+      --cg-red: #c62828;
+      --cg-amber: #f57f17;
+      --cg-orange: #e65100;
+      --cg-yellow: #f9a825;
+      --cg-gray: #757575;
+      --cg-purple: #6a1b9a;
+      --cg-blue: #1565c0;
+      --cg-teal: #00796b;
+    }
+    body { margin: 0; }
+    nav.tabs {
+      display: flex; gap: 0; background: var(--pico-card-background-color);
+      border-bottom: 2px solid var(--pico-muted-border-color);
+      padding: 0 1rem; margin-bottom: 1rem;
+    }
+    nav.tabs button {
+      background: none; border: none; padding: .75rem 1.25rem;
+      cursor: pointer; font-weight: 600; color: var(--pico-muted-color);
+      border-bottom: 3px solid transparent; margin-bottom: -2px;
+    }
+    nav.tabs button.active { color: var(--pico-primary); border-bottom-color: var(--pico-primary); }
+    nav.tabs button:hover { color: var(--pico-primary); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--pico-card-background-color); border-radius: 8px; padding: 1.25rem; text-align: center; border: 1px solid var(--pico-muted-border-color); }
+    .stat-card .value { font-size: 2rem; font-weight: 700; }
+    .stat-card .label { font-size: .85rem; color: var(--pico-muted-color); margin-top: .25rem; }
+    .badge {
+      display: inline-block; padding: .15rem .5rem; border-radius: 4px;
+      font-size: .75rem; font-weight: 700; color: #fff;
+    }
+    .badge-ALLOW { background: var(--cg-green); }
+    .badge-BLOCK { background: var(--cg-red); }
+    .badge-REDACT { background: var(--cg-amber); }
+    .badge-CRITICAL { background: var(--cg-red); }
+    .badge-HIGH { background: var(--cg-orange); }
+    .badge-MEDIUM { background: var(--cg-yellow); color: #333; }
+    .badge-LOW { background: var(--cg-gray); }
+    .badge-SECRET { background: var(--cg-purple); }
+    .badge-PII { background: var(--cg-blue); }
+    .badge-CUSTOM { background: var(--cg-teal); }
+    .badge-TEST { background: var(--cg-gray); font-size: .65rem; }
+    table { width: 100%; }
+    .expand-btn { cursor: pointer; background: none; border: none; font-size: 1rem; padding: .25rem; }
+    .findings-detail { padding: .5rem 1rem; background: var(--pico-card-background-color); }
+    .findings-detail table { font-size: .85rem; }
+    .policy-card { background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+    .policy-card h4 { margin: 0 0 .5rem; }
+    .filter-row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: end; margin-bottom: 1rem; }
+    .filter-row label { font-size: .85rem; }
+    .filter-row input, .filter-row select { padding: .4rem .6rem; font-size: .85rem; }
+    .example-btns { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+    .example-btns button { font-size: .8rem; padding: .35rem .75rem; }
+    .collapsible-header { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
+    .collapsible-header:hover { color: var(--pico-primary); }
+    .collapsible-body { display: none; }
+    .collapsible-body.open { display: block; }
+    .pattern-list { margin: 0; padding: 0; list-style: none; }
+    .pattern-list li { padding: .4rem 0; border-bottom: 1px solid var(--pico-muted-border-color); display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .pattern-list li:last-child { border-bottom: none; }
+    .pattern-list li.disabled { opacity: .5; text-decoration: line-through; }
+    .pattern-name { font-weight: 600; font-family: monospace; font-size: .85rem; cursor: pointer; }
+    .pattern-name:hover { color: var(--pico-primary); }
+    .pattern-desc { font-size: .85rem; color: var(--pico-muted-color); }
+    .pattern-regex { display: none; width: 100%; margin-top: .25rem; padding: .3rem .5rem; font-size: .75rem; background: var(--pico-code-background-color); border-radius: 4px; word-break: break-all; }
+    .pattern-regex.open { display: block; }
+    #scan-results { margin-top: 1rem; }
+    .health-ok { color: var(--cg-green); font-weight: 700; }
+    .health-err { color: var(--cg-red); font-weight: 700; }
+    .pagination { display: flex; gap: .5rem; align-items: center; justify-content: center; margin-top: 1rem; }
+    .header-bar { background: var(--pico-primary); color: #fff; padding: .75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+    .header-bar h1 { margin: 0; font-size: 1.3rem; color: #fff; }
+    .header-bar .ver { font-size: .8rem; opacity: .8; }
+    .help-banner { background: var(--pico-code-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: 6px; padding: .75rem 1rem; margin-bottom: 1rem; font-size: .85rem; display: none; }
+    .help-banner.open { display: block; }
+    .help-toggle { background: none; border: 1px solid var(--pico-muted-border-color); border-radius: 50%; width: 1.5rem; height: 1.5rem; font-size: .8rem; cursor: pointer; font-weight: 700; color: var(--pico-muted-color); line-height: 1; display: inline-flex; align-items: center; justify-content: center; margin-left: .5rem; vertical-align: middle; }
+    .help-toggle:hover { color: var(--pico-primary); border-color: var(--pico-primary); }
+    .pattern-toggle { cursor: pointer; width: 1.1rem; height: 1.1rem; accent-color: var(--pico-primary); }
+    .catalog-custom-form { display: flex; gap: .5rem; flex-wrap: wrap; align-items: end; margin-top: .5rem; }
+    .catalog-custom-form input, .catalog-custom-form select { font-size: .8rem; padding: .3rem .5rem; }
+    .catalog-custom-form button { font-size: .8rem; padding: .3rem .75rem; }
+    .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .policy-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: .5rem; }
+    .policy-header h3 { margin: 0; }
+    .policy-header-actions { display: flex; gap: .5rem; }
+    .redaction-fields { display: flex; gap: 1rem; flex-wrap: wrap; align-items: end; }
+    .scan-fields { display: flex; gap: .75rem; flex-wrap: wrap; align-items: end; }
+    .list-add-row { display: flex; gap: .5rem; margin-top: .5rem; }
+    .list-add-row input { flex: 1; min-width: 0; }
+
+    @media (max-width: 768px) {
+      nav.tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 .5rem; }
+      nav.tabs button { padding: .6rem .75rem; font-size: .8rem; white-space: nowrap; flex-shrink: 0; }
+      .header-bar { padding: .5rem 1rem; }
+      .header-bar h1 { font-size: 1.1rem; }
+      main.container { padding-left: .75rem; padding-right: .75rem; }
+      .stats-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem; }
+      .stat-card { padding: .75rem; }
+      .stat-card .value { font-size: 1.5rem; }
+      .policy-header { flex-direction: column; align-items: flex-start; }
+      .policy-header-actions { width: 100%; }
+      .policy-header-actions button { flex: 1; font-size: .85rem; }
+      .redaction-fields { flex-direction: column; gap: .5rem; }
+      .redaction-fields label { width: 100%; }
+      .filter-row { flex-direction: column; align-items: stretch; gap: .5rem; }
+      .filter-row label { width: 100%; }
+      .filter-row input, .filter-row select { width: 100%; }
+      .filter-row button { width: 100%; }
+      .scan-fields { flex-direction: column; align-items: stretch; gap: .5rem; }
+      .scan-fields label { width: 100%; }
+      .scan-fields input { width: 100%; }
+      .scan-fields button { width: 100%; }
+      .example-btns { gap: .35rem; }
+      .example-btns button { flex: 1; min-width: 0; text-align: center; }
+      .list-add-row { flex-direction: column; }
+      .list-add-row input { width: 100%; }
+      .list-add-row button { width: 100%; }
+      .catalog-custom-form { flex-direction: column; align-items: stretch; }
+      .catalog-custom-form input, .catalog-custom-form select, .catalog-custom-form button { width: 100%; }
+      .pattern-list li { font-size: .8rem; }
+      .pattern-desc { display: block; width: 100%; }
+      table { font-size: .8rem; }
+      table input, table select { font-size: .8rem; min-width: 6rem; }
+      h3 { font-size: 1.1rem; }
+      h4 { font-size: 1rem; }
+    }
+
+    @media (max-width: 480px) {
+      nav.tabs button { padding: .5rem .6rem; font-size: .75rem; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .stat-card .value { font-size: 1.25rem; }
+      .header-bar h1 { font-size: 1rem; }
+      .badge { font-size: .65rem; padding: .1rem .35rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-bar">
+    <h1>ClawGuard Dashboard</h1>
+    <span class="ver" id="header-version"></span>
+  </div>
+
+  <nav class="tabs">
+    <button class="active" data-tab="overview">Overview</button>
+    <button data-tab="history">Scan History</button>
+    <button data-tab="policies">Policies</button>
+    <button data-tab="scanner">Test Scanner</button>
+    <button data-tab="patterns">Pattern Catalog</button>
+  </nav>
+
+  <main class="container">
+    <!-- ============ OVERVIEW ============ -->
+    <section id="tab-overview" class="tab-content active">
+      <h3>Service Health <button class="help-toggle" data-help="help-overview">?</button></h3>
+      <div id="help-overview" class="help-banner">This page shows service health, scan statistics, and recent activity.</div>
+      <div id="health-info" style="margin-bottom:1.5rem;">Loading...</div>
+      <h3>Statistics</h3>
+      <div id="stats-cards" class="stats-grid"></div>
+      <h4>Top Finding Types</h4>
+      <div class="table-responsive">
+        <table id="top-findings-table">
+          <thead><tr><th>Finding Type</th><th>Count</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h4>Recent Scans</h4>
+      <div class="table-responsive">
+        <table id="recent-scans-table">
+          <thead><tr><th>ID</th><th>Time</th><th>Agent</th><th>Action</th><th>Findings</th><th>Duration</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ SCAN HISTORY ============ -->
+    <section id="tab-history" class="tab-content">
+      <h3>Scan History <button class="help-toggle" data-help="help-history">?</button></h3>
+      <div id="help-history" class="help-banner">Browse and filter past scan events. Use filters to narrow by agent, destination, or action. Expand rows to see individual findings.</div>
+      <div class="filter-row">
+        <label>Agent ID <input type="text" id="filter-agent" placeholder="e.g. agent-1"></label>
+        <label>Destination <input type="text" id="filter-dest" placeholder="e.g. api.example.com"></label>
+        <label>Action
+          <select id="filter-action">
+            <option value="">All</option>
+            <option value="ALLOW">ALLOW</option>
+            <option value="BLOCK">BLOCK</option>
+            <option value="REDACT">REDACT</option>
+          </select>
+        </label>
+        <label style="display:flex;align-items:center;gap:.35rem;font-size:.85rem;">
+          <input type="checkbox" id="hide-test-scans" checked style="width:auto;margin:0;">
+          Hide test scans
+        </label>
+        <button id="filter-btn" class="outline">Apply</button>
+      </div>
+      <div class="table-responsive">
+        <table id="audit-table">
+          <thead><tr><th></th><th>ID</th><th>Time</th><th>Agent</th><th>Destination</th><th>Action</th><th>Findings</th><th>Duration</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <button id="prev-page" class="outline" disabled>&laquo; Prev</button>
+        <span id="page-info"></span>
+        <button id="next-page" class="outline">Next &raquo;</button>
+      </div>
+    </section>
+
+    <!-- ============ POLICIES ============ -->
+    <section id="tab-policies" class="tab-content">
+      <div class="policy-header">
+        <h3>Current Policy <button class="help-toggle" data-help="help-policies">?</button></h3>
+        <div class="policy-header-actions">
+          <button id="save-policy-btn">Save Policy</button>
+          <button id="reload-policy-btn" class="outline">Reload from Disk</button>
+        </div>
+      </div>
+      <div id="help-policies" class="help-banner">Edit your scanning policy. Changes take effect immediately when saved. Use Reload from Disk to revert to the on-disk YAML.</div>
+      <div id="policy-status" style="margin-bottom:.5rem;"></div>
+
+      <!-- Default Action -->
+      <div class="policy-card">
+        <h4>Default Action</h4>
+        <select id="pol-default-action">
+          <option value="ALLOW">ALLOW</option>
+          <option value="BLOCK">BLOCK</option>
+          <option value="REDACT">REDACT</option>
+        </select>
+      </div>
+
+      <!-- Redaction Settings -->
+      <div class="policy-card">
+        <h4>Redaction Settings</h4>
+        <div class="redaction-fields">
+          <label>Strategy
+            <select id="pol-redact-strategy">
+              <option value="mask">mask</option>
+              <option value="hash">hash</option>
+              <option value="remove">remove</option>
+            </select>
+          </label>
+          <label>Mask Char
+            <input type="text" id="pol-redact-mask-char" maxlength="1" style="width:4rem;">
+          </label>
+          <label>Preserve Edges
+            <input type="number" id="pol-redact-preserve-edges" min="0" style="width:5rem;">
+          </label>
+        </div>
+      </div>
+
+      <!-- Severity Overrides -->
+      <div class="policy-card">
+        <h4>Severity Overrides</h4>
+        <div class="table-responsive">
+          <table id="pol-severity-table">
+            <thead><tr><th>Severity</th><th>Action</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="outline" id="pol-severity-add" style="margin-top:.5rem;">+ Add Override</button>
+      </div>
+
+      <!-- Destination Allowlist -->
+      <div class="policy-card">
+        <h4>Destination Allowlist</h4>
+        <div id="pol-allowlist"></div>
+        <div class="list-add-row">
+          <input type="text" id="pol-allowlist-input" placeholder="e.g. *.internal.corp">
+          <button class="outline" id="pol-allowlist-add">+ Add</button>
+        </div>
+      </div>
+
+      <!-- Destination Blocklist -->
+      <div class="policy-card">
+        <h4>Destination Blocklist</h4>
+        <div id="pol-blocklist"></div>
+        <div class="list-add-row">
+          <input type="text" id="pol-blocklist-input" placeholder="e.g. *.evil.com">
+          <button class="outline" id="pol-blocklist-add">+ Add</button>
+        </div>
+      </div>
+
+      <!-- Destination Rules -->
+      <div class="policy-card">
+        <h4>Destination Rules</h4>
+        <div class="table-responsive">
+          <table id="pol-dest-rules-table">
+            <thead><tr><th>Pattern</th><th>Action</th><th>Scanners</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="outline" id="pol-dest-rules-add" style="margin-top:.5rem;">+ Add Rule</button>
+      </div>
+
+      <!-- Agent Rules -->
+      <div class="policy-card">
+        <h4>Agent Rules</h4>
+        <div class="table-responsive">
+          <table id="pol-agent-rules-table">
+            <thead><tr><th>Agent ID</th><th>Action</th><th>Allowed Destinations</th><th>Blocked Destinations</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="outline" id="pol-agent-rules-add" style="margin-top:.5rem;">+ Add Rule</button>
+      </div>
+
+      <!-- Custom Patterns -->
+      <div class="policy-card">
+        <h4>Custom Patterns</h4>
+        <div class="table-responsive">
+          <table id="pol-custom-table">
+            <thead><tr><th>Name</th><th>Regex</th><th>Severity</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <button class="outline" id="pol-custom-add" style="margin-top:.5rem;">+ Add Pattern</button>
+      </div>
+    </section>
+
+    <!-- ============ TEST SCANNER ============ -->
+    <section id="tab-scanner" class="tab-content">
+      <h3>Test Scanner <button class="help-toggle" data-help="help-scanner">?</button></h3>
+      <div id="help-scanner" class="help-banner">Test content against ClawGuard scanners without affecting real scan history. Results are tagged with agent ID <code>__dashboard_test__</code> and can be filtered out in Scan History.</div>
+      <div class="example-btns">
+        <button class="outline secondary" data-example="aws">AWS Key</button>
+        <button class="outline secondary" data-example="cc">Credit Card</button>
+        <button class="outline secondary" data-example="ssh">SSH Key</button>
+        <button class="outline secondary" data-example="mixed">Mixed PII</button>
+      </div>
+      <label>Content
+        <textarea id="scan-content" rows="6" placeholder="Paste content to scan..."></textarea>
+      </label>
+      <div class="scan-fields">
+        <label>Destination <input type="text" id="scan-dest" placeholder="optional"></label>
+        <label>Agent ID <input type="text" id="scan-agent" placeholder="default: __dashboard_test__"></label>
+        <button id="scan-btn">Scan</button>
+      </div>
+      <div id="scan-results"></div>
+    </section>
+
+    <!-- ============ PATTERN CATALOG ============ -->
+    <section id="tab-patterns" class="tab-content">
+      <h3>Pattern Catalog <button class="help-toggle" data-help="help-patterns">?</button></h3>
+      <div id="help-patterns" class="help-banner">Browse all active detection patterns. Toggle built-in patterns on/off. Manage custom patterns below.</div>
+      <div id="pattern-catalog"></div>
+    </section>
+  </main>
+
+<script>
+(function(){
+  // ── Tab switching ──
+  const tabs = document.querySelectorAll('nav.tabs button');
+  const contents = document.querySelectorAll('.tab-content');
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabs.forEach(b => b.classList.remove('active'));
+      contents.forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'overview') loadOverview();
+      else if (btn.dataset.tab === 'history') loadHistory();
+      else if (btn.dataset.tab === 'policies') loadPolicy();
+      else if (btn.dataset.tab === 'patterns') loadPatterns();
+    });
+  });
+
+  // ── Help toggle buttons ──
+  document.querySelectorAll('.help-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const target = document.getElementById(btn.dataset.help);
+      target.classList.toggle('open');
+    });
+  });
+
+  // ── Helpers ──
+  function badge(text, prefix) {
+    return '<span class="badge badge-' + (prefix || '') + text + '">' + text + '</span>';
+  }
+  function esc(s) {
+    if (s == null) return '';
+    const d = document.createElement('div');
+    d.textContent = String(s);
+    return d.innerHTML;
+  }
+  function fmtTime(ts) {
+    if (!ts) return '-';
+    const d = new Date(ts);
+    return d.toLocaleString();
+  }
+
+  // ── OVERVIEW ──
+  async function loadOverview() {
+    // Health
+    try {
+      const h = await (await fetch('/api/v1/health')).json();
+      document.getElementById('header-version').textContent = 'v' + h.version;
+      document.getElementById('health-info').innerHTML =
+        '<span class="health-ok">Status: ' + esc(h.status) + '</span> &nbsp; | &nbsp; ' +
+        'Scanners: ' + h.scanners.map(s => badge(s, '')).join(' ') + ' &nbsp; | &nbsp; ' +
+        'Default: ' + badge(h.default_action, '');
+    } catch(e) {
+      document.getElementById('health-info').innerHTML = '<span class="health-err">Failed to fetch health</span>';
+    }
+    // Stats
+    try {
+      const s = await (await fetch('/api/v1/dashboard/stats')).json();
+      const blockCount = (s.action_counts.find(a => a.action === 'BLOCK') || {}).count || 0;
+      const rate = s.total_scans > 0 ? Math.round(blockCount / s.total_scans * 100) : 0;
+      document.getElementById('stats-cards').innerHTML =
+        '<div class="stat-card"><div class="value">' + s.total_scans + '</div><div class="label">Total Scans</div></div>' +
+        '<div class="stat-card"><div class="value">' + rate + '%</div><div class="label">Block Rate</div></div>' +
+        s.action_counts.map(a =>
+          '<div class="stat-card"><div class="value">' + a.count + '</div><div class="label">' + badge(a.action, '') + '</div></div>'
+        ).join('');
+      // Top finding types
+      const tbody = document.querySelector('#top-findings-table tbody');
+      tbody.innerHTML = s.top_finding_types.map(f =>
+        '<tr><td><code>' + esc(f.finding_type) + '</code></td><td>' + f.count + '</td></tr>'
+      ).join('') || '<tr><td colspan="2">No findings yet</td></tr>';
+      // Recent scans
+      const rtbody = document.querySelector('#recent-scans-table tbody');
+      rtbody.innerHTML = s.recent_scans.map(e =>
+        '<tr><td>' + e.id + '</td><td>' + fmtTime(e.timestamp) + '</td><td>' + esc(e.agent_id || '-') + '</td>' +
+        '<td>' + badge(e.action, '') + '</td><td>' + e.findings_count + '</td>' +
+        '<td>' + (e.duration_ms ? e.duration_ms.toFixed(1) + 'ms' : '-') + '</td></tr>'
+      ).join('') || '<tr><td colspan="6">No scans yet</td></tr>';
+    } catch(e) {
+      document.getElementById('stats-cards').innerHTML = '<p>Failed to load stats.</p>';
+    }
+  }
+
+  // ── SCAN HISTORY ──
+  let historyPage = 0;
+  const PAGE_SIZE = 20;
+
+  async function loadHistory() {
+    const agent = document.getElementById('filter-agent').value;
+    const dest = document.getElementById('filter-dest').value;
+    const action = document.getElementById('filter-action').value;
+    const hideTest = document.getElementById('hide-test-scans').checked;
+    const params = new URLSearchParams();
+    if (agent) params.set('agent_id', agent);
+    if (dest) params.set('destination', dest);
+    if (action) params.set('action', action);
+    params.set('limit', PAGE_SIZE);
+    params.set('offset', historyPage * PAGE_SIZE);
+
+    try {
+      let data = await (await fetch('/api/v1/audit?' + params)).json();
+
+      // Client-side filter: hide test scans
+      if (hideTest) {
+        data = data.filter(e => e.agent_id !== '__dashboard_test__');
+      }
+
+      const tbody = document.querySelector('#audit-table tbody');
+      tbody.innerHTML = data.map(e => {
+        const isTest = e.agent_id === '__dashboard_test__';
+        return '<tr class="audit-row" data-id="' + e.id + '">' +
+        '<td><button class="expand-btn" data-id="' + e.id + '">&#9654;</button></td>' +
+        '<td>' + e.id + '</td><td>' + fmtTime(e.timestamp) + '</td>' +
+        '<td>' + esc(e.agent_id || '-') + (isTest ? ' ' + badge('TEST', '') : '') + '</td><td>' + esc(e.destination || '-') + '</td>' +
+        '<td>' + badge(e.action, '') + '</td><td>' + e.findings_count + '</td>' +
+        '<td>' + (e.duration_ms ? e.duration_ms.toFixed(1) + 'ms' : '-') + '</td></tr>' +
+        '<tr class="findings-row" id="findings-' + e.id + '" style="display:none;"><td colspan="8">' +
+        '<div class="findings-detail">' + renderFindings(e.findings) + '</div></td></tr>';
+      }).join('') || '<tr><td colspan="8">No audit entries found</td></tr>';
+
+      document.getElementById('page-info').textContent = 'Page ' + (historyPage + 1);
+      document.getElementById('prev-page').disabled = historyPage === 0;
+      document.getElementById('next-page').disabled = data.length < PAGE_SIZE;
+
+      // Expand buttons
+      tbody.querySelectorAll('.expand-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const row = document.getElementById('findings-' + btn.dataset.id);
+          const visible = row.style.display !== 'none';
+          row.style.display = visible ? 'none' : '';
+          btn.innerHTML = visible ? '&#9654;' : '&#9660;';
+        });
+      });
+    } catch(e) {
+      document.querySelector('#audit-table tbody').innerHTML = '<tr><td colspan="8">Failed to load audit log</td></tr>';
+    }
+  }
+
+  function renderFindings(findings) {
+    if (!findings || findings.length === 0) return '<em>No findings</em>';
+    return '<table><thead><tr><th>Scanner</th><th>Type</th><th>Severity</th><th>Redacted Snippet</th></tr></thead><tbody>' +
+      findings.map(f =>
+        '<tr><td>' + badge(f.scanner_type, '') + '</td><td><code>' + esc(f.finding_type) + '</code></td>' +
+        '<td>' + badge(f.severity, '') + '</td><td><code>' + esc(f.redacted_snippet || '-') + '</code></td></tr>'
+      ).join('') + '</tbody></table>';
+  }
+
+  document.getElementById('filter-btn').addEventListener('click', () => { historyPage = 0; loadHistory(); });
+  document.getElementById('hide-test-scans').addEventListener('change', () => { historyPage = 0; loadHistory(); });
+  document.getElementById('prev-page').addEventListener('click', () => { historyPage = Math.max(0, historyPage - 1); loadHistory(); });
+  document.getElementById('next-page').addEventListener('click', () => { historyPage++; loadHistory(); });
+
+  // ── POLICIES ──
+  let policyState = {};
+
+  async function loadPolicy() {
+    try {
+      const p = await (await fetch('/api/v1/dashboard/policy')).json();
+      policyState = p;
+      populatePolicyForm(p);
+    } catch(e) {
+      document.getElementById('policy-status').innerHTML = '<span class="health-err">Failed to load policy.</span>';
+    }
+  }
+
+  function populatePolicyForm(p) {
+    document.getElementById('pol-default-action').value = p.default_action;
+    document.getElementById('pol-redact-strategy').value = p.redaction.strategy;
+    document.getElementById('pol-redact-mask-char').value = p.redaction.mask_char;
+    document.getElementById('pol-redact-preserve-edges').value = p.redaction.mask_preserve_edges;
+
+    // Severity overrides
+    renderSeverityOverrides(p.severity_overrides);
+
+    // Allowlist / Blocklist
+    renderStringList('pol-allowlist', p.destination_allowlist);
+    renderStringList('pol-blocklist', p.destination_blocklist);
+
+    // Destination rules
+    renderDestRules(p.destination_rules);
+
+    // Agent rules
+    renderAgentRules(p.agent_rules);
+
+    // Custom patterns
+    renderCustomPatterns(p.custom_patterns);
+  }
+
+  // -- Severity overrides --
+  function renderSeverityOverrides(overrides) {
+    const tbody = document.querySelector('#pol-severity-table tbody');
+    tbody.innerHTML = overrides.map((o, i) =>
+      '<tr><td><select data-idx="' + i + '" class="sev-sev">' + severityOptions(o.severity) + '</select></td>' +
+      '<td><select data-idx="' + i + '" class="sev-act">' + actionOptions(o.action) + '</select></td>' +
+      '<td><button class="outline sev-del" data-idx="' + i + '">&#10005;</button></td></tr>'
+    ).join('');
+    tbody.querySelectorAll('.sev-del').forEach(btn => {
+      btn.addEventListener('click', () => { policyState.severity_overrides.splice(+btn.dataset.idx, 1); renderSeverityOverrides(policyState.severity_overrides); });
+    });
+    tbody.querySelectorAll('.sev-sev').forEach(sel => {
+      sel.addEventListener('change', () => { policyState.severity_overrides[+sel.dataset.idx].severity = sel.value; });
+    });
+    tbody.querySelectorAll('.sev-act').forEach(sel => {
+      sel.addEventListener('change', () => { policyState.severity_overrides[+sel.dataset.idx].action = sel.value; });
+    });
+  }
+  document.getElementById('pol-severity-add').addEventListener('click', () => {
+    policyState.severity_overrides.push({severity: 'CRITICAL', action: 'BLOCK'});
+    renderSeverityOverrides(policyState.severity_overrides);
+  });
+
+  // -- String lists (allowlist/blocklist) --
+  function renderStringList(containerId, items) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = items.map((item, i) =>
+      '<div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.25rem;">' +
+      '<code>' + esc(item) + '</code>' +
+      '<button class="outline list-del" data-container="' + containerId + '" data-idx="' + i + '" style="padding:.2rem .5rem;font-size:.8rem;">&#10005;</button></div>'
+    ).join('');
+    container.querySelectorAll('.list-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.container === 'pol-allowlist' ? 'destination_allowlist' : 'destination_blocklist';
+        policyState[key].splice(+btn.dataset.idx, 1);
+        renderStringList(btn.dataset.container, policyState[key]);
+      });
+    });
+  }
+  document.getElementById('pol-allowlist-add').addEventListener('click', () => {
+    const input = document.getElementById('pol-allowlist-input');
+    if (input.value.trim()) { policyState.destination_allowlist.push(input.value.trim()); input.value = ''; renderStringList('pol-allowlist', policyState.destination_allowlist); }
+  });
+  document.getElementById('pol-blocklist-add').addEventListener('click', () => {
+    const input = document.getElementById('pol-blocklist-input');
+    if (input.value.trim()) { policyState.destination_blocklist.push(input.value.trim()); input.value = ''; renderStringList('pol-blocklist', policyState.destination_blocklist); }
+  });
+
+  // -- Destination rules --
+  function renderDestRules(rules) {
+    const tbody = document.querySelector('#pol-dest-rules-table tbody');
+    tbody.innerHTML = rules.map((r, i) =>
+      '<tr><td><input type="text" value="' + esc(r.pattern) + '" class="dr-pat" data-idx="' + i + '"></td>' +
+      '<td><select class="dr-act" data-idx="' + i + '">' + actionOptions(r.action) + '</select></td>' +
+      '<td><input type="text" value="' + esc((r.scanners || []).join(', ')) + '" class="dr-scan" data-idx="' + i + '" placeholder="SECRET, PII, CUSTOM"></td>' +
+      '<td><button class="outline dr-del" data-idx="' + i + '">&#10005;</button></td></tr>'
+    ).join('');
+    tbody.querySelectorAll('.dr-pat').forEach(inp => { inp.addEventListener('change', () => { policyState.destination_rules[+inp.dataset.idx].pattern = inp.value; }); });
+    tbody.querySelectorAll('.dr-act').forEach(sel => { sel.addEventListener('change', () => { policyState.destination_rules[+sel.dataset.idx].action = sel.value; }); });
+    tbody.querySelectorAll('.dr-scan').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const val = inp.value.trim();
+        policyState.destination_rules[+inp.dataset.idx].scanners = val ? val.split(',').map(s => s.trim()).filter(Boolean) : null;
+      });
+    });
+    tbody.querySelectorAll('.dr-del').forEach(btn => {
+      btn.addEventListener('click', () => { policyState.destination_rules.splice(+btn.dataset.idx, 1); renderDestRules(policyState.destination_rules); });
+    });
+  }
+  document.getElementById('pol-dest-rules-add').addEventListener('click', () => {
+    policyState.destination_rules.push({pattern: '', action: 'BLOCK', scanners: null});
+    renderDestRules(policyState.destination_rules);
+  });
+
+  // -- Agent rules --
+  function renderAgentRules(rules) {
+    const tbody = document.querySelector('#pol-agent-rules-table tbody');
+    tbody.innerHTML = rules.map((r, i) =>
+      '<tr><td><input type="text" value="' + esc(r.agent_id) + '" class="ar-id" data-idx="' + i + '"></td>' +
+      '<td><select class="ar-act" data-idx="' + i + '">' + actionOptionsNullable(r.action) + '</select></td>' +
+      '<td><input type="text" value="' + esc((r.allowed_destinations || []).join(', ')) + '" class="ar-allowed" data-idx="' + i + '" placeholder="comma-separated"></td>' +
+      '<td><input type="text" value="' + esc((r.blocked_destinations || []).join(', ')) + '" class="ar-blocked" data-idx="' + i + '" placeholder="comma-separated"></td>' +
+      '<td><button class="outline ar-del" data-idx="' + i + '">&#10005;</button></td></tr>'
+    ).join('');
+    tbody.querySelectorAll('.ar-id').forEach(inp => { inp.addEventListener('change', () => { policyState.agent_rules[+inp.dataset.idx].agent_id = inp.value; }); });
+    tbody.querySelectorAll('.ar-act').forEach(sel => {
+      sel.addEventListener('change', () => { policyState.agent_rules[+sel.dataset.idx].action = sel.value || null; });
+    });
+    tbody.querySelectorAll('.ar-allowed').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const val = inp.value.trim();
+        policyState.agent_rules[+inp.dataset.idx].allowed_destinations = val ? val.split(',').map(s => s.trim()).filter(Boolean) : null;
+      });
+    });
+    tbody.querySelectorAll('.ar-blocked').forEach(inp => {
+      inp.addEventListener('change', () => {
+        const val = inp.value.trim();
+        policyState.agent_rules[+inp.dataset.idx].blocked_destinations = val ? val.split(',').map(s => s.trim()).filter(Boolean) : null;
+      });
+    });
+    tbody.querySelectorAll('.ar-del').forEach(btn => {
+      btn.addEventListener('click', () => { policyState.agent_rules.splice(+btn.dataset.idx, 1); renderAgentRules(policyState.agent_rules); });
+    });
+  }
+  document.getElementById('pol-agent-rules-add').addEventListener('click', () => {
+    policyState.agent_rules.push({agent_id: '', action: null, allowed_destinations: null, blocked_destinations: null});
+    renderAgentRules(policyState.agent_rules);
+  });
+
+  // -- Custom patterns --
+  function renderCustomPatterns(patterns) {
+    const tbody = document.querySelector('#pol-custom-table tbody');
+    tbody.innerHTML = patterns.map((c, i) =>
+      '<tr><td><input type="text" value="' + esc(c.name) + '" class="cp-name" data-idx="' + i + '"></td>' +
+      '<td><input type="text" value="' + esc(c.regex) + '" class="cp-regex" data-idx="' + i + '"></td>' +
+      '<td><select class="cp-sev" data-idx="' + i + '">' + severityOptions(c.severity || 'MEDIUM') + '</select></td>' +
+      '<td><button class="outline cp-del" data-idx="' + i + '">&#10005;</button></td></tr>'
+    ).join('');
+    tbody.querySelectorAll('.cp-name').forEach(inp => { inp.addEventListener('change', () => { policyState.custom_patterns[+inp.dataset.idx].name = inp.value; }); });
+    tbody.querySelectorAll('.cp-regex').forEach(inp => { inp.addEventListener('change', () => { policyState.custom_patterns[+inp.dataset.idx].regex = inp.value; }); });
+    tbody.querySelectorAll('.cp-sev').forEach(sel => { sel.addEventListener('change', () => { policyState.custom_patterns[+sel.dataset.idx].severity = sel.value; }); });
+    tbody.querySelectorAll('.cp-del').forEach(btn => {
+      btn.addEventListener('click', () => { policyState.custom_patterns.splice(+btn.dataset.idx, 1); renderCustomPatterns(policyState.custom_patterns); });
+    });
+  }
+  document.getElementById('pol-custom-add').addEventListener('click', () => {
+    policyState.custom_patterns.push({name: '', regex: '', severity: 'MEDIUM'});
+    renderCustomPatterns(policyState.custom_patterns);
+  });
+
+  // -- Option helpers --
+  function actionOptions(selected) {
+    return ['ALLOW','BLOCK','REDACT'].map(a => '<option value="' + a + '"' + (a === selected ? ' selected' : '') + '>' + a + '</option>').join('');
+  }
+  function actionOptionsNullable(selected) {
+    return '<option value=""' + (!selected ? ' selected' : '') + '>(none)</option>' +
+      ['ALLOW','BLOCK','REDACT'].map(a => '<option value="' + a + '"' + (a === selected ? ' selected' : '') + '>' + a + '</option>').join('');
+  }
+  function severityOptions(selected) {
+    return ['LOW','MEDIUM','HIGH','CRITICAL'].map(s => '<option value="' + s + '"' + (s === selected ? ' selected' : '') + '>' + s + '</option>').join('');
+  }
+
+  // -- Assemble policy from form --
+  function assemblePolicyFromForm() {
+    return {
+      default_action: document.getElementById('pol-default-action').value,
+      redaction: {
+        strategy: document.getElementById('pol-redact-strategy').value,
+        mask_char: document.getElementById('pol-redact-mask-char').value,
+        mask_preserve_edges: parseInt(document.getElementById('pol-redact-preserve-edges').value, 10) || 0,
+      },
+      severity_overrides: policyState.severity_overrides || [],
+      destination_allowlist: policyState.destination_allowlist || [],
+      destination_blocklist: policyState.destination_blocklist || [],
+      destination_rules: policyState.destination_rules || [],
+      agent_rules: policyState.agent_rules || [],
+      custom_patterns: policyState.custom_patterns || [],
+      disabled_patterns: policyState.disabled_patterns || [],
+    };
+  }
+
+  // -- Save policy --
+  document.getElementById('save-policy-btn').addEventListener('click', async () => {
+    const status = document.getElementById('policy-status');
+    const body = assemblePolicyFromForm();
+    try {
+      const r = await fetch('/api/v1/policy', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json();
+        status.innerHTML = '<span class="health-err">Save failed: ' + esc(JSON.stringify(err.detail || err)) + '</span>';
+        return;
+      }
+      const saved = await r.json();
+      policyState = saved;
+      populatePolicyForm(saved);
+      status.innerHTML = '<span class="health-ok">Policy saved successfully.</span>';
+    } catch(e) {
+      status.innerHTML = '<span class="health-err">Save failed: ' + esc(e.message) + '</span>';
+    }
+  });
+
+  // -- Reload from disk --
+  document.getElementById('reload-policy-btn').addEventListener('click', async () => {
+    const status = document.getElementById('policy-status');
+    try {
+      const r = await fetch('/api/v1/policy/reload', {method:'POST'});
+      const d = await r.json();
+      status.innerHTML = '<span class="health-ok">Policy reloaded from disk. Default: ' + badge(d.default_action, '') + '</span>';
+      loadPolicy();
+    } catch(e) {
+      status.innerHTML = '<span class="health-err">Failed to reload policy</span>';
+    }
+  });
+
+  // ── TEST SCANNER ──
+  const examples = {
+    aws: 'Here is my AWS key: AKIAIOSFODNN7EXAMPLE',
+    cc: 'Payment card: 4111-1111-1111-1111',
+    ssh: '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0Z3VS5JJcds3xfn/yGaF\n-----END RSA PRIVATE KEY-----',
+    mixed: 'Contact john.doe@example.com, SSN: 123-45-6789, IP: 192.168.1.100'
+  };
+
+  document.querySelectorAll('[data-example]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('scan-content').value = examples[btn.dataset.example];
+    });
+  });
+
+  document.getElementById('scan-btn').addEventListener('click', async () => {
+    const content = document.getElementById('scan-content').value;
+    if (!content.trim()) return;
+    const body = {content};
+    const dest = document.getElementById('scan-dest').value;
+    const agent = document.getElementById('scan-agent').value;
+    if (dest) body.destination = dest;
+    // Default to __dashboard_test__ agent_id unless user typed a custom one
+    body.agent_id = agent || '__dashboard_test__';
+
+    const results = document.getElementById('scan-results');
+    results.innerHTML = '<p aria-busy="true">Scanning...</p>';
+
+    try {
+      const r = await fetch('/api/v1/scan', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      const d = await r.json();
+      let html = '<div style="margin-top:1rem;">';
+      html += '<h4>Result: ' + badge(d.action, '') + '</h4>';
+      html += '<p><strong>Findings:</strong> ' + d.findings_count + ' &nbsp; <strong>Duration:</strong> ' + (d.duration_ms || 0).toFixed(1) + 'ms</p>';
+
+      if (d.findings && d.findings.length > 0) {
+        html += '<table><thead><tr><th>Scanner</th><th>Type</th><th>Severity</th><th>Redacted Snippet</th></tr></thead><tbody>';
+        d.findings.forEach(f => {
+          html += '<tr><td>' + badge(f.scanner_type, '') + '</td><td><code>' + esc(f.finding_type) + '</code></td>' +
+            '<td>' + badge(f.severity, '') + '</td><td><code>' + esc(f.redacted_snippet || '-') + '</code></td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+
+      if (d.content !== null && d.content !== undefined) {
+        html += '<h5>Output Content</h5><pre><code>' + esc(d.content) + '</code></pre>';
+      } else if (d.action === 'BLOCK') {
+        html += '<p><em>Content blocked — not returned.</em></p>';
+      }
+      html += '</div>';
+      results.innerHTML = html;
+    } catch(e) {
+      results.innerHTML = '<p class="health-err">Scan failed: ' + esc(e.message) + '</p>';
+    }
+  });
+
+  // ── PATTERN CATALOG ──
+  let catalogDisabledPatterns = [];
+
+  async function loadPatterns() {
+    try {
+      const [patternData, policyData] = await Promise.all([
+        (await fetch('/api/v1/dashboard/patterns')).json(),
+        (await fetch('/api/v1/dashboard/policy')).json(),
+      ]);
+      catalogDisabledPatterns = policyData.disabled_patterns || [];
+
+      const container = document.getElementById('pattern-catalog');
+      let html = '';
+
+      html += renderPatternSection('Secrets', 'SECRET', patternData.secrets);
+      html += renderPatternSection('PII', 'PII', patternData.pii);
+
+      // Custom patterns section (always shown, with CRUD)
+      html += '<h4>' + badge('CUSTOM', '') + ' Custom (' + patternData.custom.length + ' patterns)</h4>';
+      html += '<div id="catalog-custom-list">';
+      if (patternData.custom.length > 0) {
+        patternData.custom.forEach(p => {
+          html += '<div class="policy-card" style="padding:.5rem .75rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">' +
+            badge(p.severity, '') +
+            ' <span class="pattern-name">' + esc(p.name) + '</span>' +
+            ' <span class="pattern-desc">' + esc(p.description) + '</span>' +
+            (p.regex ? ' <code class="pattern-regex open" style="display:inline;width:auto;">' + esc(p.regex) + '</code>' : '') +
+            ' <button class="outline catalog-custom-edit" data-name="' + esc(p.name) + '" data-regex="' + esc(p.regex) + '" data-severity="' + esc(p.severity) + '" style="margin-left:auto;padding:.2rem .5rem;font-size:.75rem;">Edit</button>' +
+            ' <button class="outline catalog-custom-del" data-name="' + esc(p.name) + '" style="padding:.2rem .5rem;font-size:.75rem;">Delete</button>' +
+            '</div>';
+        });
+      } else {
+        html += '<p style="font-size:.85rem;color:var(--pico-muted-color);">No custom patterns defined.</p>';
+      }
+      html += '</div>';
+
+      // Add custom pattern form
+      html += '<div class="catalog-custom-form" id="catalog-custom-add-form">' +
+        '<input type="text" id="catalog-cp-name" placeholder="Name">' +
+        '<input type="text" id="catalog-cp-regex" placeholder="Regex">' +
+        '<select id="catalog-cp-severity">' + severityOptions('MEDIUM') + '</select>' +
+        '<button class="outline" id="catalog-cp-add-btn">+ Add Custom Pattern</button>' +
+        '</div>';
+
+      container.innerHTML = html;
+
+      // Wire up collapsible sections
+      container.querySelectorAll('.collapsible-header').forEach(h => {
+        h.addEventListener('click', () => {
+          const body = h.nextElementSibling;
+          body.classList.toggle('open');
+          h.querySelector('.arrow').textContent = body.classList.contains('open') ? '\u25BC' : '\u25B6';
+        });
+      });
+
+      // Wire up regex expand on pattern name click
+      container.querySelectorAll('.pattern-name[data-regex-id]').forEach(nameEl => {
+        nameEl.addEventListener('click', () => {
+          const regexEl = document.getElementById(nameEl.dataset.regexId);
+          if (regexEl) regexEl.classList.toggle('open');
+        });
+      });
+
+      // Wire up enable/disable toggles
+      container.querySelectorAll('.pattern-toggle').forEach(cb => {
+        cb.addEventListener('change', async () => {
+          const name = cb.dataset.patternName;
+          if (cb.checked) {
+            catalogDisabledPatterns = catalogDisabledPatterns.filter(n => n !== name);
+          } else {
+            if (!catalogDisabledPatterns.includes(name)) catalogDisabledPatterns.push(name);
+          }
+          // Update the LI styling
+          const li = cb.closest('li');
+          if (li) li.classList.toggle('disabled', !cb.checked);
+
+          // Save to policy
+          await saveCatalogDisabledPatterns();
+        });
+      });
+
+      // Wire up custom pattern delete
+      container.querySelectorAll('.catalog-custom-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const name = btn.dataset.name;
+          await deleteCatalogCustomPattern(name);
+        });
+      });
+
+      // Wire up custom pattern edit
+      container.querySelectorAll('.catalog-custom-edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('catalog-cp-name').value = btn.dataset.name;
+          document.getElementById('catalog-cp-regex').value = btn.dataset.regex;
+          document.getElementById('catalog-cp-severity').value = btn.dataset.severity;
+          // Store original name for replacement
+          document.getElementById('catalog-cp-add-btn').dataset.editName = btn.dataset.name;
+          document.getElementById('catalog-cp-add-btn').textContent = 'Save Custom Pattern';
+        });
+      });
+
+      // Wire up add/save custom pattern button
+      document.getElementById('catalog-cp-add-btn').addEventListener('click', async () => {
+        const nameInput = document.getElementById('catalog-cp-name');
+        const regexInput = document.getElementById('catalog-cp-regex');
+        const sevInput = document.getElementById('catalog-cp-severity');
+        const addBtn = document.getElementById('catalog-cp-add-btn');
+        const name = nameInput.value.trim();
+        const regex = regexInput.value.trim();
+        const severity = sevInput.value;
+        if (!name || !regex) return;
+
+        await saveCatalogCustomPattern(name, regex, severity, addBtn.dataset.editName || null);
+
+        // Reset form
+        nameInput.value = '';
+        regexInput.value = '';
+        sevInput.value = 'MEDIUM';
+        delete addBtn.dataset.editName;
+        addBtn.textContent = '+ Add Custom Pattern';
+      });
+
+    } catch(e) {
+      document.getElementById('pattern-catalog').innerHTML = '<p>Failed to load patterns.</p>';
+    }
+  }
+
+  function renderPatternSection(title, scannerType, patterns) {
+    // Group by category
+    const groups = {};
+    patterns.forEach(p => {
+      if (!groups[p.category]) groups[p.category] = [];
+      groups[p.category].push(p);
+    });
+    let html = '<h4>' + badge(scannerType, '') + ' ' + title + ' (' + patterns.length + ' patterns)</h4>';
+    for (const [cat, items] of Object.entries(groups)) {
+      html += '<div class="policy-card">' +
+        '<div class="collapsible-header"><span>' + esc(cat) + ' (' + items.length + ')</span><span class="arrow">&#9654;</span></div>' +
+        '<div class="collapsible-body"><ul class="pattern-list">';
+      items.forEach((p, idx) => {
+        const isDisabled = catalogDisabledPatterns.includes(p.name);
+        const regexId = 'regex-' + scannerType + '-' + cat.replace(/\s+/g, '_') + '-' + idx;
+        html += '<li' + (isDisabled ? ' class="disabled"' : '') + '>' +
+          '<input type="checkbox" class="pattern-toggle" data-pattern-name="' + esc(p.name) + '"' + (isDisabled ? '' : ' checked') + '>' +
+          badge(p.severity, '') +
+          ' <span class="pattern-name" data-regex-id="' + regexId + '">' + esc(p.name) + '</span>' +
+          ' <span class="pattern-desc">' + esc(p.description) + '</span>' +
+          '<code class="pattern-regex" id="' + regexId + '">' + esc(p.regex) + '</code>' +
+          '</li>';
+      });
+      html += '</ul></div></div>';
+    }
+    return html;
+  }
+
+  async function saveCatalogDisabledPatterns() {
+    try {
+      const pol = await (await fetch('/api/v1/dashboard/policy')).json();
+      pol.disabled_patterns = catalogDisabledPatterns;
+      await fetch('/api/v1/policy', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(pol),
+      });
+    } catch(e) {
+      // Silently fail; toggle is already visually updated
+    }
+  }
+
+  async function saveCatalogCustomPattern(name, regex, severity, editName) {
+    try {
+      const pol = await (await fetch('/api/v1/dashboard/policy')).json();
+      if (editName) {
+        // Replace existing pattern
+        pol.custom_patterns = pol.custom_patterns.map(cp =>
+          cp.name === editName ? {name, regex, severity} : cp
+        );
+      } else {
+        pol.custom_patterns.push({name, regex, severity});
+      }
+      await fetch('/api/v1/policy', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(pol),
+      });
+      loadPatterns();
+    } catch(e) {
+      // Silently fail
+    }
+  }
+
+  async function deleteCatalogCustomPattern(name) {
+    try {
+      const pol = await (await fetch('/api/v1/dashboard/policy')).json();
+      pol.custom_patterns = pol.custom_patterns.filter(cp => cp.name !== name);
+      await fetch('/api/v1/policy', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(pol),
+      });
+      loadPatterns();
+    } catch(e) {
+      // Silently fail
+    }
+  }
+
+  // ── Initial load ──
+  loadOverview();
+})();
+</script>
+</body>
+</html>

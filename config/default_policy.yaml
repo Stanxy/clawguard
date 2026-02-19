@@ -1,0 +1,11 @@
+default_action: BLOCK
+redaction:
+  strategy: mask
+  mask_char: '*'
+  mask_preserve_edges: 4
+severity_overrides: []
+destination_allowlist: []
+destination_blocklist: []
+destination_rules: []
+agent_rules: []
+custom_patterns: []
