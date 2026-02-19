@@ -26,7 +26,7 @@ ClawGuard sits between AI agents and the outside world. Every outbound tool call
 ### Install & Run
 
 ```bash
-git clone https://github.com/<your-org>/clawguard.git
+git clone https://github.com/Stanxy/clawguard.git
 cd clawguard
 poetry install
 poetry run python -m clawguard
