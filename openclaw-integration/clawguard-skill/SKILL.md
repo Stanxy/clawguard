@@ -1,11 +1,11 @@
 ---
-name: clawguard
+name: clawwall
 version: 0.2.1
-description: "DLP surveillance layer for OpenClaw — prevents AI agents from leaking secrets, PII, and sensitive data through outbound tool calls. 51 secret patterns, PII detection with Luhn validation, entropy analysis, configurable policy engine, audit log, and web dashboard."
+description: "Outbound DLP for OpenClaw — hard regex blocks secrets & PII from leaving the machine. Domain control, no LLM."
 author: Stanxy
 ---
 
-# ClawGuard — DLP Surveillance Layer for OpenClaw
+# ClawWall — Outbound DLP for OpenClaw
 
 **GitHub:** https://github.com/Stanxy/clawguard
 
@@ -62,7 +62,7 @@ Then register the plugin in your OpenClaw config:
 This skill file teaches the agent DLP best practices — what ClawGuard monitors and how to handle blocked calls.
 
 ```bash
-clawhub install stanxy-clawguard
+clawhub install clawwall
 ```
 
 ## Configuration
