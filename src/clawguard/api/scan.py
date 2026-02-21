@@ -25,15 +25,15 @@ async def scan_content(
     # Run scanners
     findings = container.registry.scan_all(request.content, only=scanner_types)
 
-    # Evaluate policy
-    action = container.policy_engine.evaluate(
+    # Evaluate policy (with prompt upgrade)
+    decision = container.policy_engine.evaluate_with_prompt(
         findings,
         destination=request.destination,
         agent_id=request.agent_id,
     )
 
     # Apply action
-    result = container.action_handler.handle(action, request.content, findings)
+    result = container.action_handler.handle(decision.action, request.content, findings)
 
     duration_ms = (time.monotonic() - start) * 1000
 
@@ -69,7 +69,7 @@ async def scan_content(
         "agent_id": request.agent_id,
         "destination": request.destination,
         "content_hash": content_hash,
-        "action": action.value,
+        "action": decision.action.value,
         "findings_count": len(findings),
         "duration_ms": duration_ms,
         "findings": finding_records,
@@ -77,6 +77,7 @@ async def scan_content(
 
     return ScanResponse(
         action=result.action,
+        suggested_action=decision.suggested_action,
         content=result.content,
         findings=finding_responses,
         findings_count=len(findings),

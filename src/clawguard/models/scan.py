@@ -23,6 +23,7 @@ class FindingResponse(BaseModel):
 
 class ScanResponse(BaseModel):
     action: Action
+    suggested_action: Action | None = None
     content: str | None = None
     findings: list[FindingResponse] = []
     findings_count: int = 0

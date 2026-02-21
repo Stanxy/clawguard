@@ -46,14 +46,17 @@ class ServiceContainer:
         self.audit_repo: AuditRepository = SQLAlchemyAuditRepository(self.session_factory)
 
     def _sync_disabled_patterns(self) -> None:
-        """Push disabled_patterns from policy to secret/PII scanners."""
+        """Push disabled_patterns and severity_overrides from policy to secret/PII scanners."""
         disabled = set(self.policy_engine.policy.disabled_patterns)
+        sev_overrides = self.policy_engine.policy.pattern_severity_overrides
         secret_scanner = self.registry.get(ScannerType.SECRET)
         if isinstance(secret_scanner, SecretScanner):
             secret_scanner.disabled_patterns = disabled
+            secret_scanner.severity_overrides = sev_overrides
         pii_scanner = self.registry.get(ScannerType.PII)
         if isinstance(pii_scanner, PIIScanner):
             pii_scanner.disabled_patterns = disabled
+            pii_scanner.severity_overrides = sev_overrides
 
 
 _container: ServiceContainer | None = None

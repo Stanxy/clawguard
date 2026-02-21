@@ -21,7 +21,7 @@ async def test_audit_after_scan(client):
     data = resp.json()
     assert len(data) >= 1
     entry = data[0]
-    assert entry["action"] == "BLOCK"
+    assert entry["action"] == "REDACT"
     assert entry["findings_count"] >= 1
     assert "content_hash" in entry
     # Raw content should never be in the audit log
@@ -34,9 +34,9 @@ async def test_audit_filter_by_action(client):
     await client.post("/api/v1/scan", json={"content": "AKIAIOSFODNN7EXAMPLE"})
     await client.post("/api/v1/scan", json={"content": "clean text"})
 
-    resp = await client.get("/api/v1/audit", params={"action": "BLOCK"})
+    resp = await client.get("/api/v1/audit", params={"action": "REDACT"})
     data = resp.json()
-    assert all(e["action"] == "BLOCK" for e in data)
+    assert all(e["action"] == "REDACT" for e in data)
 
 
 @pytest.mark.asyncio

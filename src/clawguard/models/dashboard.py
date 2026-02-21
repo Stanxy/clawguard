@@ -32,6 +32,7 @@ class DashboardStats(BaseModel):
 class PatternCatalogEntry(BaseModel):
     name: str
     severity: str
+    default_severity: str = ""
     category: str
     description: str
     regex: str = ""

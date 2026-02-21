@@ -50,6 +50,10 @@
     .badge-SECRET { background: var(--cg-purple); }
     .badge-PII { background: var(--cg-blue); }
     .badge-CUSTOM { background: var(--cg-teal); }
+    .badge-PROMPT { background: var(--cg-blue); }
+    .pattern-severity-select { font-size: .75rem; padding: .1rem .3rem; border-radius: 4px; border: 1px solid var(--pico-muted-border-color); }
+    .pattern-severity-select.overridden { outline: 2px solid var(--cg-blue); }
+    .sev-reset { font-size: .65rem; cursor: pointer; color: var(--cg-blue); text-decoration: underline; margin-left: .25rem; }
     .badge-TEST { background: var(--cg-gray); font-size: .65rem; }
     table { width: 100%; }
     .expand-btn { cursor: pointer; background: none; border: none; font-size: 1rem; padding: .25rem; }
@@ -196,6 +200,7 @@
             <option value="ALLOW">ALLOW</option>
             <option value="BLOCK">BLOCK</option>
             <option value="REDACT">REDACT</option>
+            <option value="PROMPT">PROMPT</option>
           </select>
         </label>
         <label style="display:flex;align-items:center;gap:.35rem;font-size:.85rem;">
@@ -326,6 +331,21 @@
         </div>
         <button class="outline" id="pol-custom-add" style="margin-top:.5rem;">+ Add Pattern</button>
       </div>
+
+      <!-- Prompt Threshold -->
+      <div class="policy-card">
+        <h4>Prompt Threshold</h4>
+        <p style="font-size:.85rem;color:var(--pico-muted-color);margin-bottom:.5rem;">
+          When set, findings at or above this severity will return a PROMPT action instead of the normal action, allowing the user to approve or deny in the terminal.
+        </p>
+        <select id="pol-prompt-threshold">
+          <option value="">(disabled)</option>
+          <option value="LOW">LOW</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="HIGH">HIGH</option>
+          <option value="CRITICAL">CRITICAL</option>
+        </select>
+      </div>
     </section>
 
     <!-- ============ TEST SCANNER ============ -->
@@ -392,11 +412,13 @@
     if (s == null) return '';
     const d = document.createElement('div');
     d.textContent = String(s);
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function fmtTime(ts) {
     if (!ts) return '-';
-    const d = new Date(ts);
+    // Server returns UTC timestamps without Z suffix; ensure JS parses as UTC
+    const s = String(ts);
+    const d = new Date(s.endsWith('Z') || s.includes('+') ? s : s + 'Z');
     return d.toLocaleString();
   }
 
@@ -544,6 +566,9 @@
 
     // Custom patterns
     renderCustomPatterns(p.custom_patterns);
+
+    // Prompt threshold
+    document.getElementById('pol-prompt-threshold').value = p.prompt_threshold || '';
   }
 
   // -- Severity overrides --
@@ -690,6 +715,7 @@
 
   // -- Assemble policy from form --
   function assemblePolicyFromForm() {
+    const promptThreshold = document.getElementById('pol-prompt-threshold').value;
     return {
       default_action: document.getElementById('pol-default-action').value,
       redaction: {
@@ -704,6 +730,8 @@
       agent_rules: policyState.agent_rules || [],
       custom_patterns: policyState.custom_patterns || [],
       disabled_patterns: policyState.disabled_patterns || [],
+      pattern_severity_overrides: policyState.pattern_severity_overrides || {},
+      prompt_threshold: promptThreshold || null,
     };
   }
 
@@ -779,7 +807,7 @@
       });
       const d = await r.json();
       let html = '<div style="margin-top:1rem;">';
-      html += '<h4>Result: ' + badge(d.action, '') + '</h4>';
+      html += '<h4>Result: ' + badge(d.action, '') + (d.suggested_action ? ' &nbsp; Suggested: ' + badge(d.suggested_action, '') : '') + '</h4>';
       html += '<p><strong>Findings:</strong> ' + d.findings_count + ' &nbsp; <strong>Duration:</strong> ' + (d.duration_ms || 0).toFixed(1) + 'ms</p>';
 
       if (d.findings && d.findings.length > 0) {
@@ -866,6 +894,31 @@
         });
       });
 
+      // Wire up severity override dropdowns
+      container.querySelectorAll('.pattern-severity-select').forEach(sel => {
+        sel.addEventListener('change', async () => {
+          const name = sel.dataset.patternName;
+          const newSev = sel.value;
+          const defaultSev = sel.dataset.defaultSeverity;
+          await saveCatalogPatternSeverity(name, newSev, defaultSev);
+          // Update visual state
+          const isOverridden = newSev !== defaultSev;
+          sel.classList.toggle('overridden', isOverridden);
+          // Refresh to update reset buttons
+          loadPatterns();
+        });
+      });
+
+      // Wire up severity reset buttons
+      container.querySelectorAll('.sev-reset').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const name = btn.dataset.patternName;
+          const defaultSev = btn.dataset.defaultSeverity;
+          await saveCatalogPatternSeverity(name, defaultSev, defaultSev);
+          loadPatterns();
+        });
+      });
+
       // Wire up enable/disable toggles
       container.querySelectorAll('.pattern-toggle').forEach(cb => {
         cb.addEventListener('change', async () => {
@@ -944,10 +997,13 @@
         '<div class="collapsible-body"><ul class="pattern-list">';
       items.forEach((p, idx) => {
         const isDisabled = catalogDisabledPatterns.includes(p.name);
+        const isOverridden = p.default_severity && p.severity !== p.default_severity;
         const regexId = 'regex-' + scannerType + '-' + cat.replace(/\s+/g, '_') + '-' + idx;
         html += '<li' + (isDisabled ? ' class="disabled"' : '') + '>' +
           '<input type="checkbox" class="pattern-toggle" data-pattern-name="' + esc(p.name) + '"' + (isDisabled ? '' : ' checked') + '>' +
           badge(p.severity, '') +
+          ' <select class="pattern-severity-select' + (isOverridden ? ' overridden' : '') + '" data-pattern-name="' + esc(p.name) + '" data-default-severity="' + esc(p.default_severity || p.severity) + '">' + severityOptions(p.severity) + '</select>' +
+          (isOverridden ? ' <span class="sev-reset" data-pattern-name="' + esc(p.name) + '" data-default-severity="' + esc(p.default_severity) + '" title="Reset to default">reset</span>' : '') +
           ' <span class="pattern-name" data-regex-id="' + regexId + '">' + esc(p.name) + '</span>' +
           ' <span class="pattern-desc">' + esc(p.description) + '</span>' +
           '<code class="pattern-regex" id="' + regexId + '">' + esc(p.regex) + '</code>' +
@@ -969,6 +1025,26 @@
       });
     } catch(e) {
       // Silently fail; toggle is already visually updated
+    }
+  }
+
+  async function saveCatalogPatternSeverity(name, newSev, defaultSev) {
+    try {
+      const pol = await (await fetch('/api/v1/dashboard/policy')).json();
+      if (!pol.pattern_severity_overrides) pol.pattern_severity_overrides = {};
+      if (newSev === defaultSev) {
+        // Remove override (back to default)
+        delete pol.pattern_severity_overrides[name];
+      } else {
+        pol.pattern_severity_overrides[name] = newSev;
+      }
+      await fetch('/api/v1/policy', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(pol),
+      });
+    } catch(e) {
+      // Silently fail; dropdown is already visually updated
     }
   }
 

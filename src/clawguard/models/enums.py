@@ -3,10 +3,18 @@ from __future__ import annotations
 from enum import Enum
 
 
+class PolicyAction(str, Enum):
+    """Actions that can be configured in policy rules."""
+    ALLOW = "ALLOW"
+    BLOCK = "BLOCK"
+    REDACT = "REDACT"
+
+
 class Action(str, Enum):
     ALLOW = "ALLOW"
     BLOCK = "BLOCK"
     REDACT = "REDACT"
+    PROMPT = "PROMPT"
 
 
 class Severity(str, Enum):

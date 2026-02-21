@@ -35,6 +35,14 @@ class ActionHandler:
                 findings_count=len(findings),
             )
 
+        if action == Action.PROMPT:
+            redacted = self._redactor.redact(content, findings)
+            return ActionResult(
+                action=Action.PROMPT,
+                content=redacted,
+                findings_count=len(findings),
+            )
+
         # REDACT
         redacted = self._redactor.redact(content, findings)
         return ActionResult(

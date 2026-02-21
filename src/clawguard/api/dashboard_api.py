@@ -134,10 +134,13 @@ async def dashboard_policy(
 async def dashboard_patterns(
     container: ServiceContainer = Depends(get_container),
 ) -> PatternCatalog:
+    sev_overrides = container.policy_engine.policy.pattern_severity_overrides
+
     secrets = [
         PatternCatalogEntry(
             name=sp.name,
-            severity=sp.severity.value,
+            severity=sev_overrides[sp.name].value if sp.name in sev_overrides else sp.severity.value,
+            default_severity=sp.severity.value,
             category=_CATEGORY_LABELS.get(sp.category, sp.category),
             description=_SECRET_DESCRIPTIONS.get(sp.name, sp.name),
             regex=sp.pattern.pattern,
@@ -148,7 +151,8 @@ async def dashboard_patterns(
     pii = [
         PatternCatalogEntry(
             name=pp.name,
-            severity=pp.severity.value,
+            severity=sev_overrides[pp.name].value if pp.name in sev_overrides else pp.severity.value,
+            default_severity=pp.severity.value,
             category=_PII_CATEGORY_MAP.get(pp.name, "PII"),
             description=_PII_DESCRIPTIONS.get(pp.name, pp.name),
             regex=pp.pattern.pattern,

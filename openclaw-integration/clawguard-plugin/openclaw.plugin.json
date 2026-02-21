@@ -1,4 +1,5 @@
 {
+  "id": "clawwall",
   "name": "clawguard",
   "version": "0.1.0",
   "description": "DLP Surveillance Layer — scans outbound content for secrets, PII, and policy violations",
@@ -8,21 +9,25 @@
       "export": "beforeToolCall"
     }
   },
-  "config": {
-    "serviceUrl": {
-      "type": "string",
-      "default": "http://127.0.0.1:8642",
-      "description": "ClawGuard service URL"
-    },
-    "blockOnError": {
-      "type": "boolean",
-      "default": false,
-      "description": "If true, block tool calls when the ClawGuard service is unreachable (fail-closed). Default: fail-open."
-    },
-    "timeoutMs": {
-      "type": "number",
-      "default": 5000,
-      "description": "Timeout for scan requests in milliseconds"
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "serviceUrl": {
+        "type": "string",
+        "default": "http://127.0.0.1:8642",
+        "description": "ClawGuard service URL"
+      },
+      "blockOnError": {
+        "type": "boolean",
+        "default": false,
+        "description": "If true, block tool calls when the ClawGuard service is unreachable (fail-closed). Default: fail-open."
+      },
+      "timeoutMs": {
+        "type": "number",
+        "default": 5000,
+        "description": "Timeout for scan requests in milliseconds"
+      }
     }
   }
 }

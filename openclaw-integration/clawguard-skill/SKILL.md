@@ -1,6 +1,6 @@
 ---
 name: clawwall
-version: 0.2.1
+version: 0.3.0
 description: "Outbound DLP for OpenClaw — hard regex blocks secrets & PII from leaving the machine. Domain control, no LLM."
 author: Stanxy
 openclaw:
@@ -8,104 +8,71 @@ openclaw:
     bins:
       - python3
       - pip
-      - git
       - node
       - npm
     envs: []
+  hooks:
+    - event: gateway:startup
+      handler: hooks/openclaw/dist/handler.js
+      export: onStartup
 ---
 
 # ClawWall — Outbound DLP for OpenClaw
 
 **GitHub:** https://github.com/Stanxy/clawguard
-**Release:** https://github.com/Stanxy/clawguard/releases/tag/v0.2.1
 **PyPI:** https://pypi.org/project/clawwall
 
 ClawWall sits between your AI agent and the outside world. Every outbound tool call is intercepted and scanned against 60+ hard-coded patterns before anything leaves the machine. If content matches — it is blocked or redacted. No LLM, no approximation: regex and entropy only.
 
+## Setup
+
+One command:
+
+```bash
+bash setup.sh
+```
+
+This installs the Python service, builds the plugin and hook, registers the plugin in your OpenClaw config, sets up a system service, and verifies the health endpoint.
+
+The `gateway:startup` hook auto-starts the service whenever OpenClaw boots — no manual `clawwall` command needed.
+
 ## Trust & Permissions
 
-**Be aware of what this installs:**
-- A **local Python service** (port 8642) that receives every outbound tool call for scanning
-- An **OpenClaw plugin** that hooks `before_tool_call` — all outbound content passes through it
-- A **local SQLite database** that stores scan findings metadata
+**What this installs:**
 
-**What the database stores:** finding type, severity, position offsets, action taken, and duration. It never stores raw content, secrets, or PII values.
+| Component | What It Does |
+|-----------|-------------|
+| **Python service** (port 8642) | Receives every outbound tool call for scanning |
+| **OpenClaw plugin** (`before_tool_call`) | Intercepts outbound content and routes to the service |
+| **Startup hook** (`gateway:startup`) | Auto-starts the service when OpenClaw boots |
+| **SQLite database** | Stores scan metadata (finding type, severity, action, duration) |
+| **systemd/launchd service** | Fallback auto-start via OS service manager |
+
+**What the database stores:** finding type, severity, position offsets, action taken, and duration. It **never** stores raw content, secrets, or PII values.
 
 **What it does NOT do:** no telemetry, no external connections, no data leaves the machine. The service is fully local.
 
-Plugin registration is **manual** — nothing is auto-installed into OpenClaw. You must explicitly add the plugin to your config (see below).
-
-## Installation
-
-### Prerequisites
-
-- Python 3.10+, pip
-- Node.js + npm (for the OpenClaw plugin only)
-
-### 1. Install the ClawWall service (PyPI)
+## Verify Installation
 
 ```bash
-pip install clawwall==0.2.1
+# Health check
+curl -s http://127.0.0.1:8642/api/v1/health
+
+# Test scan
+curl -s -X POST http://127.0.0.1:8642/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{"content": "key=AKIAIOSFODNN7EXAMPLE"}'
+
+# Dashboard
+open http://127.0.0.1:8642/dashboard
 ```
 
-Verify the SHA256 of the downloaded wheel if you want to confirm integrity:
-```
-5939d375c724771931e92e88be2b2f11cd27a4eec095af95cb6923b61220c65f  clawwall-0.2.1-py3-none-any.whl
-1e1ecae39bb4d351f0e503501e2615814c5c0cd0f822998f5648fa74eb1de5c2  clawwall-0.2.1.tar.gz
-```
+## What ClawWall Detects
 
-Or clone at the pinned release tag:
-```bash
-git clone --branch v0.2.1 https://github.com/Stanxy/clawguard.git
-cd clawguard && pip install .
-```
-
-### 2. Start the service
-
-```bash
-clawwall
-```
-
-Or via Python:
-```bash
-python -m clawguard
-```
-
-Service starts on **http://localhost:8642**.
-Dashboard at **http://localhost:8642/dashboard**.
-
-### 3. Install the OpenClaw plugin (manual)
-
-```bash
-git clone --branch v0.2.1 https://github.com/Stanxy/clawguard.git
-cd clawguard/openclaw-integration/clawguard-plugin
-npm install && npm run build
-```
-
-Then **manually** add to your OpenClaw config:
-```json
-{
-  "plugins": {
-    "clawwall": {
-      "path": "/path/to/clawguard/openclaw-integration/clawguard-plugin/dist/index.js",
-      "config": {
-        "serviceUrl": "http://127.0.0.1:8642",
-        "blockOnError": false,
-        "timeoutMs": 5000
-      }
-    }
-  }
-}
-```
-
-> Set `blockOnError: true` to fail-closed (block all tool calls if the service is unreachable).
-> Set `blockOnError: false` (default) to fail-open (allow calls through if the service is down).
-
-### 4. (Optional) Install this skill
-
-```bash
-clawhub install clawwall
-```
+- **Secrets (52 patterns):** AWS, GCP, Azure, GitHub, GitLab, Stripe, Square, PayPal, Slack, Discord, Telegram, Twilio, SSH/PGP private keys, database URIs, JWT/Bearer tokens, SaaS API keys, and more
+- **PII (10 patterns):** SSNs, credit cards (Luhn-validated), emails, phone numbers, IP addresses
+- **Entropy analysis:** high-entropy strings that don't match any known pattern
+- **Custom patterns:** user-defined regex via policy YAML
 
 ## Configuration
 
@@ -115,52 +82,27 @@ Environment variables (all prefixed `CLAWGUARD_`):
 |---|---|---|
 | `CLAWGUARD_HOST` | `0.0.0.0` | Bind address |
 | `CLAWGUARD_PORT` | `8642` | Port |
-| `CLAWGUARD_DATABASE_URL` | `sqlite+aiosqlite:///clawwall.db` | Database path |
-| `CLAWGUARD_POLICY_PATH` | `config/default_policy.yaml` | Policy file |
+| `CLAWGUARD_DATABASE_URL` | `sqlite+aiosqlite:///~/.config/clawwall/clawwall.db` | Database path |
+| `CLAWGUARD_POLICY_PATH` | `~/.config/clawwall/policy.yaml` | Policy file |
 | `CLAWGUARD_LOG_LEVEL` | `INFO` | Log verbosity |
-
-## What ClawWall Detects
-
-- **Secrets (51 patterns):** AWS, GCP, Azure, GitHub, Stripe, Slack, PayPal, Square, SSH/PGP private keys, database URIs, JWT tokens, and more
-- **PII (10 patterns):** SSNs, credit cards (Luhn-validated), emails, phone numbers, IP addresses
-- **Entropy analysis:** high-entropy strings that don't match any known pattern
 
 ## Policy
 
-Default policy (`config/default_policy.yaml`) blocks all findings:
+Default policy redacts all findings. Edit via the dashboard or `~/.config/clawwall/policy.yaml`:
 
 ```yaml
-default_action: BLOCK      # BLOCK | REDACT | ALLOW
+default_action: REDACT      # BLOCK | REDACT | ALLOW
 redaction:
-  strategy: mask           # mask | hash | remove
+  strategy: mask             # mask | hash | remove
   mask_char: "*"
   mask_preserve_edges: 4
-destination_allowlist: []  # bypass scanning for trusted destinations
-destination_blocklist: []  # always reject these destinations
-custom_patterns: []        # add your own regex patterns
-disabled_patterns: []      # disable specific built-in patterns by name
+destination_allowlist: []    # bypass scanning for trusted destinations
+destination_blocklist: []    # always reject these destinations
+custom_patterns: []          # add your own regex patterns
+disabled_patterns: []        # disable specific built-in patterns by name
 ```
 
-## API Quick Start
-
-```bash
-curl -s -X POST http://localhost:8642/api/v1/scan \
-  -H "Content-Type: application/json" \
-  -d '{"content": "key=AKIAIOSFODNN7EXAMPLE", "destination": "api.example.com"}'
-```
-
-Response:
-```json
-{
-  "action": "BLOCK",
-  "findings": [{
-    "finding_type": "aws_access_key_id",
-    "severity": "CRITICAL",
-    "redacted_snippet": "AKIA************MPLE"
-  }],
-  "duration_ms": 2.1
-}
-```
+Policy evaluation order: severity overrides > destination allowlist > destination blocklist > destination rules > agent rules > default action.
 
 ## Agent Instructions
 
@@ -175,5 +117,16 @@ You are operating behind **ClawWall**. All outbound tool calls are scanned befor
 **Best practices:**
 - Never include raw API keys, tokens, or PII in outbound calls
 - Reference credentials by name (`$OPENAI_API_KEY`), not by value
-- If blocked, check `findings` to see what matched, remove it, and retry
+- If blocked, check `findings` to see what matched, remove the sensitive data, and retry
 - False positive? Tell the user to adjust the policy via the dashboard at http://localhost:8642/dashboard
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Service not starting | Check `~/.config/clawwall/clawwall.log` for errors |
+| Port 8642 in use | Another process is using the port — check with `lsof -i :8642` |
+| Plugin not intercepting | Verify plugin is registered in `~/.openclaw/openclaw.json` |
+| False positives | Disable specific patterns via `disabled_patterns` in policy YAML |
+| Hook not firing | Rebuild hook: `cd hooks/openclaw && npm run build` |
+| `clawwall` not found | Ensure pip install directory is on PATH, or use `python3 -m clawguard` |

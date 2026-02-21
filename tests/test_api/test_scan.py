@@ -10,7 +10,7 @@ async def test_scan_detects_aws_key(client):
     })
     assert resp.status_code == 200
     data = resp.json()
-    assert data["action"] == "BLOCK"
+    assert data["action"] == "REDACT"
     assert data["findings_count"] >= 1
     assert any(f["finding_type"] == "aws_access_key_id" for f in data["findings"])
 
@@ -22,7 +22,7 @@ async def test_scan_detects_ssn(client):
     })
     assert resp.status_code == 200
     data = resp.json()
-    assert data["action"] == "BLOCK"
+    assert data["action"] == "REDACT"
     assert any(f["finding_type"] == "ssn" for f in data["findings"])
 
 

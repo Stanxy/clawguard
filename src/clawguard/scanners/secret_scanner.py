@@ -15,6 +15,7 @@ class SecretScanner(BaseScanner):
         self._entropy_threshold = entropy_threshold
         self._entropy_min_length = entropy_min_length
         self.disabled_patterns: set[str] = set()
+        self.severity_overrides: dict[str, Severity] = {}
 
     def scan(self, content: str) -> list[Finding]:
         findings: list[Finding] = []
@@ -29,10 +30,11 @@ class SecretScanner(BaseScanner):
                 if span in seen_spans:
                     continue
                 seen_spans.add(span)
+                effective_severity = self.severity_overrides.get(sp.name, sp.severity)
                 findings.append(Finding(
                     scanner_type=self.scanner_type,
                     finding_type=sp.name,
-                    severity=sp.severity,
+                    severity=effective_severity,
                     matched_text=match.group(0),
                     start=match.start(),
                     end=match.end(),

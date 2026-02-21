@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from clawguard.models.enums import ScannerType
+from clawguard.models.enums import ScannerType, Severity
 from clawguard.scanners.base import BaseScanner, Finding
 from clawguard.scanners.patterns.pii import PII_PATTERNS
 
@@ -10,6 +10,7 @@ class PIIScanner(BaseScanner):
 
     def __init__(self) -> None:
         self.disabled_patterns: set[str] = set()
+        self.severity_overrides: dict[str, Severity] = {}
 
     def scan(self, content: str) -> list[Finding]:
         findings: list[Finding] = []
@@ -24,10 +25,11 @@ class PIIScanner(BaseScanner):
                 if pp.validator is not None and not pp.validator(matched_text):
                     continue
 
+                effective_severity = self.severity_overrides.get(pp.name, pp.severity)
                 findings.append(Finding(
                     scanner_type=self.scanner_type,
                     finding_type=pp.name,
-                    severity=pp.severity,
+                    severity=effective_severity,
                     matched_text=matched_text,
                     start=match.start(),
                     end=match.end(),

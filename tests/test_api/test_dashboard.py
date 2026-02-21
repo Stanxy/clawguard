@@ -72,7 +72,7 @@ async def test_stats_action_counts(client):
     resp = await client.get("/api/v1/dashboard/stats")
     data = resp.json()
     actions = {a["action"]: a["count"] for a in data["action_counts"]}
-    assert actions.get("BLOCK", 0) >= 1
+    assert actions.get("REDACT", 0) >= 1
     assert actions.get("ALLOW", 0) >= 1
 
 
@@ -115,7 +115,7 @@ async def test_policy_endpoint(client):
 async def test_policy_default_action_is_block(client):
     resp = await client.get("/api/v1/dashboard/policy")
     data = resp.json()
-    assert data["default_action"] == "BLOCK"
+    assert data["default_action"] == "REDACT"
 
 
 @pytest.mark.asyncio
@@ -192,10 +192,12 @@ async def test_patterns_categories(client):
 
 
 @pytest.mark.asyncio
-async def test_patterns_custom_empty_by_default(client):
+async def test_patterns_custom_from_default_policy(client):
+    """Custom patterns from default policy should appear in the catalog."""
     resp = await client.get("/api/v1/dashboard/patterns")
     data = resp.json()
-    assert data["custom"] == []
+    custom_names = [c["name"] for c in data["custom"]]
+    assert "GOG_KEYRING_PASSWORD" in custom_names
 
 
 # ── PUT /api/v1/policy ─────────────────────────────────────────────────────
@@ -320,12 +322,12 @@ async def test_patterns_custom_include_regex(client):
 
 
 @pytest.mark.asyncio
-async def test_health_version_is_020(client):
-    """Health endpoint should report version 0.2.0."""
+async def test_health_version_is_030(client):
+    """Health endpoint should report version 0.3.0."""
     resp = await client.get("/api/v1/health")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["version"] == "0.2.0"
+    assert data["version"] == "0.3.0"
 
 
 # ── v0.2.0: Disabled patterns ────────────────────────────────────────────────
